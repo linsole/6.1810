@@ -15,6 +15,7 @@
 #include "sleeplock.h"
 #include "file.h"
 #include "fcntl.h"
+#include "sysinfo.h"
 
 // Fetch the nth word-sized system call argument as a file descriptor
 // and return both the descriptor and the corresponding struct file.
@@ -501,5 +502,26 @@ sys_pipe(void)
     fileclose(wf);
     return -1;
   }
+  return 0;
+}
+
+// declare our helper function which resides in kernel/kalloc.c and kernel/proc.c
+extern uint64 amountfreemem();
+extern uint64 numberofproc();
+
+uint64
+sys_sysinfo(void)
+{
+  // collect the information about sysinfo in result
+  struct sysinfo result = {amountfreemem(), numberofproc()};
+
+  // get the argument, copy out the result back to user space
+  struct proc *p = myproc();
+  uint64 user_sysinfo_pointer;
+  argaddr(0, &user_sysinfo_pointer);
+  if (copyout(p->pagetable, user_sysinfo_pointer, (char *)&result, sizeof(struct sysinfo)) < 0) {
+    return -1;
+  }
+
   return 0;
 }
