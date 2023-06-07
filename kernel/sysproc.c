@@ -75,6 +75,44 @@ int
 sys_pgaccess(void)
 {
   // lab pgtbl: your code here.
+
+  // acquire argument from user space
+  uint64 base;
+  argaddr(0, &base);
+  int len;
+  argint(1, &len);
+  uint64 mask;
+  argaddr(2, &mask);
+  
+  // find the address of the third level page directory
+  pagetable_t pagetable = myproc()->pagetable;
+  for(int level = 2; level > 0; level--) {
+    pte_t pte = pagetable[PX(level, base)];
+    if(pte & PTE_V) {
+      pagetable = (pagetable_t)PTE2PA(pte);
+    } else {
+      return -1;
+    }
+  }
+
+  // iteratively go through len PTNs, and set mask_kernel accordingly
+  int offset = PX(0, base);
+  uint64 mask_kernel = 0;
+  for (int i = 0; i < len; i++) {
+    if (pagetable[offset+i] & (PTE_A)) {
+      mask_kernel |= (1L << i);
+    }
+
+    // clear PTE_A
+    pagetable[offset+i] &= (~PTE_A);
+    // be careful about the difference between ~ and !
+    // use ! you will erase the whole PTN
+  }
+
+  // copyout mask_kernel from kernel to user space
+  if (copyout(myproc()->pagetable, mask, (char*)(&mask_kernel), sizeof(mask_kernel)) < 0)
+    return -1;
+
   return 0;
 }
 #endif
