@@ -83,28 +83,19 @@ sys_pgaccess(void)
   argint(1, &len);
   uint64 mask;
   argaddr(2, &mask);
-  
-  // find the address of the third level page directory
+
   pagetable_t pagetable = myproc()->pagetable;
-  for(int level = 2; level > 0; level--) {
-    pte_t pte = pagetable[PX(level, base)];
-    if(pte & PTE_V) {
-      pagetable = (pagetable_t)PTE2PA(pte);
-    } else {
-      return -1;
-    }
-  }
 
   // iteratively go through len PTNs, and set mask_kernel accordingly
-  int offset = PX(0, base);
   uint64 mask_kernel = 0;
   for (int i = 0; i < len; i++) {
-    if (pagetable[offset+i] & (PTE_A)) {
+    pte_t *pte = walk(pagetable, base+i*PGSIZE, 0);
+    if (*pte & (PTE_A)) {
       mask_kernel |= (1L << i);
     }
 
     // clear PTE_A
-    pagetable[offset+i] &= (~PTE_A);
+    *pte &= (~PTE_A);
     // be careful about the difference between ~ and !
     // use ! you will erase the whole PTN
   }
