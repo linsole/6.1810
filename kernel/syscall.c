@@ -102,6 +102,39 @@ extern uint64 sys_link(void);
 extern uint64 sys_mkdir(void);
 extern uint64 sys_close(void);
 
+// the alarm handler function
+uint64
+sys_sigalarm(void)
+{
+  // get function arguments and fill some fields of struct proc
+  int ticks;
+  uint64 fn;
+  argint(0, &ticks);
+  argaddr(1, &fn);
+  struct proc *p = myproc();
+  p->ticks = ticks;
+  p->fn = fn;
+  p->passed = ticks;
+
+  return 0;
+}
+
+// the alarm return function
+uint64
+sys_sigreturn(void)
+{
+  // Restore registers from trapframe. Registers are stored in usertrap.
+  struct proc *p = myproc();
+  uint64 size = sizeof(struct trapframe) / sizeof(uint64);
+  uint64* index = (uint64*)(p->trapframe);
+  for (int i = 0; i < size; i += 1) {
+    *(index + i) = *(index + size + i);
+  }
+  
+  p->passed = p->ticks; // re-arm the alarm counter
+  return p->trapframe->a0; // just return the original a0
+}
+
 // An array mapping syscall numbers from syscall.h
 // to the function that handles the system call.
 static uint64 (*syscalls[])(void) = {
@@ -126,6 +159,8 @@ static uint64 (*syscalls[])(void) = {
 [SYS_link]    sys_link,
 [SYS_mkdir]   sys_mkdir,
 [SYS_close]   sys_close,
+[SYS_sigalarm]   sys_sigalarm,
+[SYS_sigreturn]   sys_sigreturn,
 };
 
 void

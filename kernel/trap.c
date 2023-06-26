@@ -77,8 +77,23 @@ usertrap(void)
     exit(-1);
 
   // give up the CPU if this is a timer interrupt.
-  if(which_dev == 2)
-    yield();
+  if(which_dev == 2) {
+    if (p->ticks == 0) {
+      yield();
+    } else if (--(p->passed) == 0) {
+      // Trapframe has 4096 bytes, it's big enough to hold these registers
+      // We store the registers just after the last element of struct trapframe
+      uint64 size = sizeof(struct trapframe) / sizeof(uint64);
+      uint64* index = (uint64*)(p->trapframe);
+      for (int i = 0; i < size; i += 1) {
+        *(index + size + i) = *(index + i);
+      }
+      // set epc to the function address in the struct proc
+      p->trapframe->epc = p->fn;
+    } else {
+      yield();
+    }
+  }
 
   usertrapret();
 }

@@ -104,4 +104,9 @@ struct proc {
   struct file *ofile[NOFILE];  // Open files
   struct inode *cwd;           // Current directory
   char name[16];               // Process name (debugging)
+
+  // these are for the alarm exercise
+  int ticks;
+  uint64 fn;
+  int passed; // initialized as the same value to ticks, when get to zero, trigger alarm fn in usertrap
 };
