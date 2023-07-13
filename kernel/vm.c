@@ -360,6 +360,9 @@ copyout(pagetable_t pagetable, uint64 dstva, char *src, uint64 len)
 
   while(len > 0){
     va0 = PGROUNDDOWN(dstva);
+
+    // basic code scheme is the same in trap.c, jusdge if the dstva is valid and 
+    // writable originally
     pte_t *pte = walk(pagetable, va0, 0);
     if (pte == 0)
       return -1;
@@ -376,9 +379,11 @@ copyout(pagetable_t pagetable, uint64 dstva, char *src, uint64 len)
       
       // this is important, it's not meant to really *free* pa, but to maintain the reference count of original pa
       kfree((void*)pa);
-    } else if ((~(*pte)) & PTE_W){
+
+    } else if ((~(*pte)) & PTE_W) { // else the page wasn't writable originally, just return -1
       return -1;
     }
+
     pa0 = walkaddr(pagetable, va0);
     if(pa0 == 0)
       return -1;

@@ -69,17 +69,15 @@ usertrap(void)
     syscall();
   } else if((which_dev = devintr()) != 0){
     // ok
-  } else if (r_scause() == 0x2 || r_scause() == 0xc || r_scause() == 0xd || r_scause() == 0xf) {
-    // 0xd represents load page fault, kill the process if 
-    // it wants to access the address that it shouldn't originally
-    if (r_scause() == 0xd)
-      setkilled(p);
+  } else if (r_scause() == 0xf) { 
+    // we only deal with store page fault here
     
     pte_t *pte = walk(p->pagetable, r_stval(), 0);
-    // pte == 0 means the address is greater than MAXVA or the pte
+    // pte == 0 means the address is greater than MAXVA or the pte doesn't set PTE_V
     if (pte == 0) {
       setkilled(p);
     } else if ((*pte)&PTE_RSW) {
+      // this is the main procedure for copy on write
       char *mem = kalloc();
       if (mem == 0) {
         printf("Not enough Memory\n");
@@ -93,9 +91,13 @@ usertrap(void)
       
       // this is important, it's not meant to really *free* pa, but to maintain the reference count of original pa
       kfree((void*)pa);
+
     } else {
+      // else the page wasn't writable originally, just kill the process
       setkilled(p);
     }
+  } else {
+    setkilled(p);
   }
 
   if(killed(p))

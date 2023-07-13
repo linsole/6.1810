@@ -53,9 +53,12 @@ kfree(void *pa)
   if(((uint64)pa % PGSIZE) != 0 || (char*)pa < end || (uint64)pa >= PHYSTOP)
     panic("kfree");
 
+  // if the count is greater than 1, decrement by 1
+  // note that kinit called kfree with all the initial ref count set to 0, so 
+  // we must check before subtract
   if (refs[((uint64)pa-KERNBASE) / PGSIZE] > 0)
     refs[((uint64)pa-KERNBASE) / PGSIZE] -= 1;
-  // less or equal to 1, less because kinit called kfree without corresponding kalloc
+  
   if (refs[((uint64)pa-KERNBASE) / PGSIZE] == 0) {
     // Fill with junk to catch dangling refs.
     memset(pa, 1, PGSIZE);
