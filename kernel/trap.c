@@ -16,6 +16,8 @@ void kernelvec();
 
 extern int devintr();
 
+extern uint32 refs[];
+
 void
 trapinit(void)
 {
@@ -67,10 +69,33 @@ usertrap(void)
     syscall();
   } else if((which_dev = devintr()) != 0){
     // ok
-  } else {
-    printf("usertrap(): unexpected scause %p pid=%d\n", r_scause(), p->pid);
-    printf("            sepc=%p stval=%p\n", r_sepc(), r_stval());
-    setkilled(p);
+  } else if (r_scause() == 0x2 || r_scause() == 0xc || r_scause() == 0xd || r_scause() == 0xf) {
+    // 0xd represents load page fault, kill the process if 
+    // it wants to access the address that it shouldn't originally
+    if (r_scause() == 0xd)
+      setkilled(p);
+    
+    pte_t *pte = walk(p->pagetable, r_stval(), 0);
+    // pte == 0 means the address is greater than MAXVA or the pte
+    if (pte == 0) {
+      setkilled(p);
+    } else if ((*pte)&PTE_RSW) {
+      char *mem = kalloc();
+      if (mem == 0) {
+        printf("Not enough Memory\n");
+        setkilled(p);
+      }
+      uint64 pa = PTE2PA(*pte);
+      *pte |= PTE_W;
+      uint flags = PTE_FLAGS(*pte);
+      memmove(mem, (char*)pa, PGSIZE);
+      *pte = PA2PTE(mem) | flags;
+      
+      // this is important, it's not meant to really *free* pa, but to maintain the reference count of original pa
+      kfree((void*)pa);
+    } else {
+      setkilled(p);
+    }
   }
 
   if(killed(p))
